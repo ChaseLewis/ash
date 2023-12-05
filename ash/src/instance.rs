@@ -4,8 +4,8 @@ use crate::device::Device;
 use crate::prelude::*;
 use crate::vk;
 use crate::RawPtr;
+use core::ffi::{c_char, c_void};
 use std::mem;
-use std::os::raw::c_char;
 use std::ptr;
 
 /// <https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkInstance.html>
@@ -20,15 +20,21 @@ pub struct Instance {
 
 impl Instance {
     pub unsafe fn load(static_fn: &vk::StaticFn, instance: vk::Instance) -> Self {
-        let load_fn = |name: &std::ffi::CStr| {
-            mem::transmute((static_fn.get_instance_proc_addr)(instance, name.as_ptr()))
-        };
+        Self::load_with(
+            |name| mem::transmute((static_fn.get_instance_proc_addr)(instance, name.as_ptr())),
+            instance,
+        )
+    }
 
+    pub unsafe fn load_with(
+        mut load_fn: impl FnMut(&core::ffi::CStr) -> *const c_void,
+        instance: vk::Instance,
+    ) -> Self {
         Self::from_parts_1_3(
             instance,
-            vk::InstanceFnV1_0::load(load_fn),
-            vk::InstanceFnV1_1::load(load_fn),
-            vk::InstanceFnV1_3::load(load_fn),
+            vk::InstanceFnV1_0::load(&mut load_fn),
+            vk::InstanceFnV1_1::load(&mut load_fn),
+            vk::InstanceFnV1_3::load(&mut load_fn),
         )
     }
 
